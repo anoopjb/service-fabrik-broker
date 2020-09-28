@@ -249,7 +249,7 @@ describe('Jobs', function () {
           expect(baseJobLogRunHistoryStub.firstCall.args[3]).to.eql(undefined);
         });
       });
-      it('should initiate backup, should delete scheduled backup older than 15 days and transaction logs older than the latest successful backup before retention-period, beyond one successful backup', function () {
+      it.only('should initiate backup, should delete scheduled backup older than 15 days and transaction logs older than the latest successful backup before retention-period, beyond one successful backup', function () {
         const backupResponse = {
           backup_guid: backup_guid
         };

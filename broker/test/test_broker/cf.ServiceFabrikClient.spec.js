@@ -31,10 +31,11 @@ describe('cf', function () {
         const options = {
           method: method,
           url: path,
-          auth: {
-            bearer: bearer
+          headers: {
+            Authorization: `Bearer ${bearer}`,
+            'Content-type': 'application/json'
           },
-          json: true
+          responseType: 'json'
         };
         if (_.isObject(statusCode)) {
           data = statusCode;
@@ -47,7 +48,7 @@ describe('cf', function () {
               query: data
             });
           } else {
-            options.body = data;
+            options.data = data;
           }
         }
         _.set(response, 'statusCode', statusCode || 200);
