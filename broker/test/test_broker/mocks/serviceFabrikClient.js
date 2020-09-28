@@ -16,6 +16,9 @@ exports.scheduleUpdate = scheduleUpdate;
 exports.getBackupState = getBackupState;
 
 function startBackup(instance_id, payload, response) {
+  console.log(`URL : ${serviceFabrikUrl}`);
+  console.log(`/api/v1/service_instances/${instance_id}/backup`);
+  console.log(payload);
   return nock(serviceFabrikUrl)
     .replyContentLength()
     .post(`/api/v1/service_instances/${instance_id}/backup`, payload)
