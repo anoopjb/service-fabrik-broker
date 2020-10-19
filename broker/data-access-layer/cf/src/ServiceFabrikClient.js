@@ -19,7 +19,6 @@ class ServiceFabrikClient extends AxiosHttpClient {
       rejectUnauthorized: !config.skip_ssl_validation
     });
     this.tokenIssuer = tokenIssuer;
-    this.debugRequest();
   }
 
   getInfo() {
@@ -44,8 +43,6 @@ class ServiceFabrikClient extends AxiosHttpClient {
     return this.tokenIssuer
       .getAccessToken()
       .then(accessToken => {
-        console.log("### Starting startBackup");
-        console.log(body);
         return this.request({
           method: 'POST',
           url: `/api/v1/service_instances/${options.instance_id}/backup`,

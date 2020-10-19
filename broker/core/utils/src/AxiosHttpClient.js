@@ -1,8 +1,7 @@
 'use strict';
 
 const _ = require('lodash');
-// TODO: remove .default from axios
-const axios = require('axios').default;
+const axios = require('axios');
 // TODO: remove axios-debug-log
 require('axios-debug-log');
 const https = require('https')
@@ -134,7 +133,6 @@ class AxiosHttpClient {
       this.buildCommandFactory(baseURL);
     }
     if (baseURL && this.commandMap[baseURL]) {
-      // Circuit breaker is disabled. Create a commandMap
       if (this.commandMap[baseURL][_.toLower(`${baseURL}_${httpMethod}_${path}_circuit`)]) {
         return this.commandMap[baseURL][_.toLower(`${url}_${httpMethod}_circuit`)];
       } else if (this.commandMap[baseURL][_.toLower(`${baseURL}_${httpMethod}_circuit`)]) {
@@ -160,7 +158,7 @@ class AxiosHttpClient {
     logger.debug('Received HTTP response:', result);
     if (expectedStatusCode && res.status !== expectedStatusCode) {
       let message = `Got HTTP Status Code ${res.status} expected ${expectedStatusCode}`;
-      if ((res.data && (res.data.message || res.body.description))) {
+      if ((res.data && (res.data.message || res.data.description))) {
         message = `${message}. ${res.data.message || res.data.description}`;
       } else if (res.statusText) {
         message = `${message}. ${res.statusText}`;
