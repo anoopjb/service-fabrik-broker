@@ -12,7 +12,10 @@ describe('Utils', function () {
         const options = {
           method: method,
           url: path,
-          json: true
+          headers: {
+            'Content-type': 'application/json'
+          },
+          responseType: "json"
         };
         if (_.isObject(statusCode)) {
           data = statusCode;
@@ -25,7 +28,7 @@ describe('Utils', function () {
               query: data
             });
           } else {
-            options.body = data;
+            options.data = data;
           }
         }
         _.set(response, 'statusCode', statusCode || 200);
