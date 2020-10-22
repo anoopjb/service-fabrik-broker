@@ -1,6 +1,7 @@
 'use strict';
 
 const _ = require('lodash');
+const Promise = require('bluebird');
 const axios = require('axios');
 // TODO: remove axios-debug-log
 require('axios-debug-log');
@@ -31,7 +32,7 @@ class AxiosHttpClient {
         this.defaultOptions, { httpsAgent: httpsAgent }
       );
     }
-    this.defaultRequest = axios.create(this.defaultOptions);
+    this.client = axios.create(this.defaultOptions);
 
     this.commandMap = {};
     this.PARSED_URL_MAP = {};
@@ -217,12 +218,15 @@ class AxiosHttpClient {
   invoke(options, expectedStatusCode) {
     expectedStatusCode = expectedStatusCode || options.expectedStatusCode;
     logger.debug('Sending HTTP request with options :', options);
-    return this.defaultRequest.request(options).then((res) => {
-      return this.validate(res, expectedStatusCode);
-    })
-      .catch((error) => {
-        return this.validate(error.response, expectedStatusCode);
-      });
+    // Wrapping request in Promise.resolve to create a Bluebird Promise
+    // This is done to keep the .tap() usage intact
+    return Promise.resolve(this.client.request(options))
+      .then(res => this
+        .validate(res, expectedStatusCode)
+      )
+      .catch(error => this
+        .validate(error.response, expectedStatusCode)
+      );
   }
 
   request(options, expectedStatusCode) {
