@@ -2,8 +2,6 @@
 
 const _ = require('lodash');
 const axios = require('axios');
-// TODO: remove axios-debug-log
-require('axios-debug-log');
 const https = require('https')
 const parseUrl = require('url').parse;
 const errors = require('./errors');
@@ -46,17 +44,6 @@ class AxiosHttpClient {
         logger.warn(`Circuit breaker config not found for HTTP. Hystrix will not be configured for ${options.baseURL}`);
       }
     }
-  }
-
-  // ToDo: Remove this method
-  // This spills auth details to console
-  debugRequest() {
-    // Addding an interceptor to print request to console
-    this.defaultRequest.interceptors.request.use(req => {
-      console.log(`Printing request to URL: ${req.url}`)
-      console.log(req);
-      return req;
-    });
   }
 
   buildCommandFactory(baseURL) {
