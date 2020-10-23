@@ -109,8 +109,6 @@
     "@sf/quota-app": "file:applications/quota-app",
     "@sf/reports": "file:applications/reports",
     "@sf/scheduler": "file:applications/scheduler",
-    "@sf/service-agent": "file:data-access-layer/service-agent",
-    "axios": "^0.20.0",
-    "axios-debug-log": "^0.8.0"
+    "@sf/service-agent": "file:data-access-layer/service-agent"
   }
 }
