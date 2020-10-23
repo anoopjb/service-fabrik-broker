@@ -2,9 +2,7 @@
 
 const _ = require('lodash');
 const axios = require('axios');
-// TODO: remove axios-debug-log
-require('axios-debug-log');
-const https = require('https')
+const https = require('https');
 const parseUrl = require('url').parse;
 const errors = require('./errors');
 const logger = require('@sf/logger');
@@ -24,9 +22,9 @@ class AxiosHttpClient {
     if (_.get(options, 'rejectUnauthorized', true) == false) {
       const httpsAgent = new https.Agent({
         rejectUnauthorized: false
-      })
+      });
       this.defaultOptions = _.omit(options, 'rejectUnauthorized');
-      // add the new agent to axios options
+      // Add the new agent to axios options
       this.defaultOptions = _.extend(
         this.defaultOptions, { httpsAgent: httpsAgent }
       );
@@ -46,17 +44,6 @@ class AxiosHttpClient {
         logger.warn(`Circuit breaker config not found for HTTP. Hystrix will not be configured for ${options.baseURL}`);
       }
     }
-  }
-
-  // ToDo: Remove this method
-  // This spills auth details to console
-  debugRequest() {
-    // Addding an interceptor to print request to console
-    this.defaultRequest.interceptors.request.use(req => {
-      console.log(`Printing request to URL: ${req.url}`)
-      console.log(req);
-      return req;
-    });
   }
 
   buildCommandFactory(baseURL) {
@@ -154,7 +141,7 @@ class AxiosHttpClient {
       statusMessage: res.statusText,
       headers: res.headers,
       body: res.data
-    }
+    };
     logger.debug('Received HTTP response:', result);
     if (expectedStatusCode && res.status !== expectedStatusCode) {
       let message = `Got HTTP Status Code ${res.status} expected ${expectedStatusCode}`;
@@ -206,23 +193,24 @@ class AxiosHttpClient {
           err.message = `${err.message}. ${res.data}`;
         }
       }
-      // Throwing error inside a catch block of Promise causes
+      // Throwing error inside a catch block of Promise might cause
       // UnhandledPromiseRejectionWarning
       throw err;
     }
     return result;
-  };
+  }
 
 
   invoke(options, expectedStatusCode) {
     expectedStatusCode = expectedStatusCode || options.expectedStatusCode;
     logger.debug('Sending HTTP request with options :', options);
-    return this.defaultRequest.request(options).then((res) => {
-      return this.validate(res, expectedStatusCode);
-    })
-      .catch((error) => {
-        return this.validate(error.response, expectedStatusCode);
-      });
+    return this.defaultRequest.request(options)
+      .then(res => this
+        .validate(res, expectedStatusCode)
+      )
+      .catch(error => this
+        .validate(error.response, expectedStatusCode)
+      );
   }
 
   request(options, expectedStatusCode) {
