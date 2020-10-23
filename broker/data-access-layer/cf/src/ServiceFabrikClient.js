@@ -43,8 +43,8 @@ class ServiceFabrikClient extends AxiosHttpClient {
     const body = _.omit(options, 'instance_id');
     return this.tokenIssuer
       .getAccessToken()
-      .then(accessToken => {
-        return this.request({
+      .then(accessToken => this
+        .request({
           method: 'POST',
           url: `/api/v1/service_instances/${options.instance_id}/backup`,
           auth: false,
@@ -54,10 +54,8 @@ class ServiceFabrikClient extends AxiosHttpClient {
           },
           responseType: 'json',
           data: body
-        }, 202)
-          .then(res => res.body)
-      }
-      );
+        }, 202))
+      .then(res => res.body);
   }
 
   abortLastBackup(options) {
@@ -72,7 +70,7 @@ class ServiceFabrikClient extends AxiosHttpClient {
             authorization: `Bearer ${accessToken}`,
             'Content-type': 'application/json'
           },
-          responseType: 'json',
+          responseType: 'json'
         })
         .then(res => {
           if (res.statusCode === 200 || res.statusCode === 202) {
@@ -95,7 +93,7 @@ class ServiceFabrikClient extends AxiosHttpClient {
             authorization: `Bearer ${accessToken}`,
             'Content-type': 'application/json'
           },
-          responseType: 'json',
+          responseType: 'json'
         }, 200)
         .then(res => res.body)
       );
