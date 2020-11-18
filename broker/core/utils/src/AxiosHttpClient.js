@@ -18,18 +18,7 @@ const InternalServerError = errors.InternalServerError;
 
 class AxiosHttpClient {
   constructor(options) {
-    // If options has rejectUnauthorized: false,
-    // create an https agent with this option and pass to axios.
-    if (_.get(options, 'rejectUnauthorized', true) == false) {
-      const httpsAgent = new https.Agent({
-        rejectUnauthorized: false
-      });
-      this.defaultOptions = _.omit(options, 'rejectUnauthorized');
-      // Add the new agent to axios options
-      this.defaultOptions = _.extend(
-        this.defaultOptions, { httpsAgent: httpsAgent }
-      );
-    }
+    this.defaultOptions = this.enhanceOptions(options);
     this.client = axios.create(this.defaultOptions);
 
     this.commandMap = {};
@@ -45,6 +34,31 @@ class AxiosHttpClient {
         logger.warn(`Circuit breaker config not found for HTTP. Hystrix will not be configured for ${options.baseURL}`);
       }
     }
+  }
+
+  /**
+   * Enhance Axios config for the request or client
+   *
+   * @param {Object} options - configuration options to client
+   * @returns {Object} enhanced_options - options with adaptations
+   */
+  enhanceOptions(options) {
+    let enhanced_options = options;
+
+    // If options has rejectUnauthorized: false,
+    // create an https agent with this option and pass to axios.
+    if (_.get(options, 'rejectUnauthorized', true) == false) {
+      const httpsAgent = new https.Agent({
+        rejectUnauthorized: false
+      });
+      enhanced_options = _.omit(options, 'rejectUnauthorized');
+      // Add the new agent to the axios options
+      enhanced_options = _.extend(
+        enhanced_options, { httpsAgent: httpsAgent }
+      );
+    }
+
+    return enhanced_options || options;
   }
 
   buildCommandFactory(baseURL) {
@@ -136,84 +150,116 @@ class AxiosHttpClient {
     return error;
   }
 
-  validate(res, expectedStatusCode) {
+  enhanceError(res, expectedStatusCode) {
     const result = {
       statusCode: res.status,
       statusMessage: res.statusText,
       headers: res.headers,
       body: res.data
     };
-    logger.debug('Received HTTP response:', result);
-    if (expectedStatusCode && res.status !== expectedStatusCode) {
-      let message = `Got HTTP Status Code ${res.status} expected ${expectedStatusCode}`;
-      if ((res.data && (res.data.message || res.data.description))) {
-        message = `${message}. ${res.data.message || res.data.description}`;
-      } else if (res.statusText) {
-        message = `${message}. ${res.statusText}`;
-      }
-      let err;
-      switch (res.status) {
-        case CONST.HTTP_STATUS_CODE.BAD_REQUEST:
-          logger.warn(message, {
-            response: result
-          });
-          err = new BadRequest(message);
-          break;
-        case CONST.HTTP_STATUS_CODE.NOT_FOUND:
-          logger.info(message, {
-            response: result
-          });
-          err = new NotFound(message);
-          break;
-        case CONST.HTTP_STATUS_CODE.CONFLICT:
-          logger.info(message, {
-            response: result
-          });
-          err = new Conflict(message);
-          break;
-        case CONST.HTTP_STATUS_CODE.UNPROCESSABLE_ENTITY:
-          logger.info(message, {
-            response: result
-          });
-          err = new UnprocessableEntity(message);
-          break;
-        default:
-          logger.error(message, {
-            response: result
-          });
-          err = new InternalServerError(message);
-          break;
-      }
-      if (res.data && typeof res.data === 'object') {
-        err.error = res.data;
-      } else if (typeof res.data === 'string') {
-        try {
-          const errResponse = JSON.parse(res.data);
-          err.error = errResponse;
-        } catch (parseErr) {
-          err.message = `${err.message}. ${res.data}`;
-        }
-      }
-      // Throwing error inside a catch block of Promise might cause
-      // UnhandledPromiseRejectionWarning
-      throw err;
+    let message = `Got HTTP Status Code ${res.status} expected ${expectedStatusCode}`;
+    logger.debug('Received Error with response: ', result);
+    if ((res.data && (res.data.message || res.data.description))) {
+      message = `${message}. ${res.data.message || res.data.description}`;
+    } else if (res.statusText) {
+      message = `${message}. ${res.statusText}`;
     }
-    return result;
+    let err;
+    switch (res.status) {
+      case CONST.HTTP_STATUS_CODE.BAD_REQUEST:
+        logger.warn(message, {
+          response: result
+        });
+        err = new BadRequest(message);
+        break;
+      case CONST.HTTP_STATUS_CODE.NOT_FOUND:
+        logger.info(message, {
+          response: result
+        });
+        err = new NotFound(message);
+        break;
+      case CONST.HTTP_STATUS_CODE.CONFLICT:
+        logger.info(message, {
+          response: result
+        });
+        err = new Conflict(message);
+        break;
+      case CONST.HTTP_STATUS_CODE.UNPROCESSABLE_ENTITY:
+        logger.info(message, {
+          response: result
+        });
+        err = new UnprocessableEntity(message);
+        break;
+      default:
+        logger.error(message, {
+          response: result
+        });
+        err = new InternalServerError(message);
+        break;
+    }
+    if (res.data && typeof res.data === 'object') {
+      err.error = res.data;
+    } else if (typeof res.data === 'string') {
+      try {
+        const errResponse = JSON.parse(res.data);
+        err.error = errResponse;
+      } catch (parseErr) {
+        err.message = `${err.message}. ${res.data}`;
+      }
+    }
+    // Throwing error inside a catch block of Promise might cause
+    // UnhandledPromiseRejectionWarning
+    throw err;
   }
-
 
   invoke(options, expectedStatusCode) {
     expectedStatusCode = expectedStatusCode || options.expectedStatusCode;
     logger.debug('Sending HTTP request with options :', options);
+    let enhanced_options = this.enhanceOptions(options);
+
+    // validateStatus defines whether to resolve or reject the promise
+    // for a given HTTP response status code.
+    _.defaults(enhanced_options, {
+      validateStatus: function (status) {
+        if (expectedStatusCode) {
+          // response status code should be expected status code
+          return status == expectedStatusCode;
+        } else {
+          // or in the 2xx range
+          return status >= 200 && status < 300;
+        }
+      }
+    });
+
     // Wrapping request in Promise.resolve to create a Bluebird Promise
     // This is done to keep the .tap() usage intact
-    return Promise.resolve(this.client.request(options))
-      .then(res => this
-        .validate(res, expectedStatusCode)
-      )
-      .catch(error => this
-        .validate(error.response, expectedStatusCode)
-      );
+    return Promise.resolve(this.client.request(enhanced_options))
+      .then(res => {
+        const result = {
+          statusCode: res.status,
+          statusMessage: res.statusText,
+          headers: res.headers,
+          body: res.data
+        };
+        logger.debug('Received HTTP response:', result);
+        return result;
+      })
+      .catch(error => {
+        if (error.response) {
+          // The request was made and the server responded with a status code
+          // that falls out of the expected range
+          this.enhanceError(error.response, expectedStatusCode);
+        } else {
+          // The request was made but no response was received
+          // or, something happened in setting up the request that triggered an Error
+          const err = _.pick(error.toJSON(), [
+            'message', 'name', 'description',
+            'stack', 'code'
+          ]);
+          logger.error('HTTP request failed: ', err);
+          throw new InternalServerError(err.message);
+        }
+      });
   }
 
   request(options, expectedStatusCode) {
