@@ -16,9 +16,15 @@ const Conflict = errors.Conflict;
 const UnprocessableEntity = errors.UnprocessableEntity;
 const InternalServerError = errors.InternalServerError;
 
+
 class AxiosHttpClient {
+/**
+* Creates an axios client with options.
+* `responseType` configuration is only supported in request
+* and not supported through constructor options.
+*/
   constructor(options) {
-    this.defaultOptions = this.enhanceOptions(options);
+    this.defaultOptions = this.rejectUnauthorized(options);
     this.client = axios.create(this.defaultOptions);
 
     this.commandMap = {};
@@ -36,7 +42,11 @@ class AxiosHttpClient {
     }
   }
 
-  enhanceOptions(options) {
+  /**
+   * Disables rejecting unauthorized certificates if option has
+   * `rejectUnauthorized: false`.
+   */
+  rejectUnauthorized(options) {
     let enhanced_options = options;
 
     // If options has rejectUnauthorized: false,
@@ -51,6 +61,26 @@ class AxiosHttpClient {
         enhanced_options, { httpsAgent: httpsAgent }
       );
     }
+    return enhanced_options;
+  }
+
+  /**
+   * Checks options and transforms it into configuration
+   * supported by Axios
+   */
+  enhanceOptions(options) {
+    let enhanced_options = this.rejectUnauthorized(options);
+
+    // Workaround for axios/axios/issues/907
+    switch (_.get(options, 'responseType')) {
+      case 'text':
+      case 'document':
+        // If responseType is not json,
+        // remove default transformResponse which does unintended
+        // JSON.parse of response data.
+        enhanced_options.transformResponse = options.transformResponse || [];
+        break;
+    } // Workaround ends
 
     return enhanced_options;
   }
@@ -201,8 +231,6 @@ class AxiosHttpClient {
         err.message = `${err.message}. ${res.data}`;
       }
     }
-    // Throwing error inside a catch block of Promise might cause
-    // UnhandledPromiseRejectionWarning
     throw err;
   }
 
@@ -216,17 +244,17 @@ class AxiosHttpClient {
     _.defaults(enhanced_options, {
       validateStatus: function (status) {
         if (expectedStatusCode) {
-          // response status code should be expected status code
+          // response status code should be expected status code.
           return status == expectedStatusCode;
         } else {
-          // or in the 2xx range
+          // or in the 2xx range.
           return status >= 200 && status < 300;
         }
       }
     });
 
     // Wrapping request in Promise.resolve to create a Bluebird Promise
-    // This is done to keep the .tap() usage intact
+    // This is done to keep the .tap() usage intact.
     return Promise.resolve(this.client.request(enhanced_options))
       .then(res => {
         const result = {
@@ -241,11 +269,11 @@ class AxiosHttpClient {
       .catch(error => {
         if (error.response) {
           // The request was made and the server responded with a status code
-          // that falls out of the expected range
+          // that falls out of the expected range.
           this.enhanceError(error.response, expectedStatusCode);
         } else {
           // The request was made but no response was received
-          // or, something happened in setting up the request that triggered an Error
+          // or, something happened in setting up the request that triggered an Error.
           const err = _.pick(error.toJSON(), [
             'message', 'name', 'description',
             'stack', 'code'
@@ -256,6 +284,10 @@ class AxiosHttpClient {
       });
   }
 
+  /**
+   * Makes Http requests using axios client
+   * and fails if response code is not expectedStatusCode.
+   */
   request(options, expectedStatusCode) {
     const command = this.getCommand(options, options.method);
     if (command) {

@@ -803,7 +803,8 @@ class BoshDirectorClient extends AxiosHttpClient {
         url: `/tasks/${taskIdAlone}/output`,
         params: {
           type: 'result'
-        }
+        },
+        responseType: 'text'
       }, 200, deploymentName)
       .then(res => _
         .chain(res.body)
